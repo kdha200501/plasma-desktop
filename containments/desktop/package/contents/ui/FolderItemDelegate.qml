@@ -22,6 +22,7 @@ Item {
 
     required property var model
 
+    property Item parentItemReference
     property int index:          model.index
     property string name:        model.blank ? "" : model.display
     property string nameWrapped: model.blank ? "" : model.displayWrapped
@@ -390,8 +391,8 @@ Item {
                         // get unloaded when items are dragged to a different
                         // place on the desktop.
                         visible: this === frameLoader.item
-                        hovered: impl.iconAndLabelsShouldlookSelected
-                        pressed: main.model.selected
+                        hovered: false
+                        pressed: main.model.selected || (impl.iconAndLabelsShouldlookSelected && parentItemReference.dragging && isDir)
                         active: Window.active
                     }
                 }
@@ -439,7 +440,7 @@ Item {
                         samples: radius * 2 + 1
                         spread: 0.05
 
-                        color: "black"
+                        color: (main.GridView.view.hoveredItem === main && main.parentItemReference.dragging && main.isDir) ? Kirigami.Theme.highlightColor : "black"
 
                         opacity: main.model.isHidden ? 0.3 : 0.6
 
