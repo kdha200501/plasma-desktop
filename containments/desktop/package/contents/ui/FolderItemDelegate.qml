@@ -33,6 +33,7 @@ Item {
     required property string displayWrapped
     required property var decoration
 
+    property Item parentItemReference
     property bool isOnRootView: false
 
     readonly property /*FolderViewDialog*/ Folder.SubDialog popupDialog: loader.item ? loader.item.popupDialog    : null
@@ -385,8 +386,8 @@ Item {
                         // get unloaded when items are dragged to a different
                         // place on the desktop.
                         visible: this === frameLoader.item
-                        hovered: impl.hovered
-                        pressed: main.selected
+                        hovered: impl.hovered && !(main.parentItemReference?.dragging && main.isDir)
+                        pressed: main.selected || (impl.hovered && main.parentItemReference?.dragging && main.isDir)
                         active: Window.active
                     }
                 }
@@ -435,7 +436,7 @@ Item {
                         samples: radius * 2 + 1
                         spread: 0.05
 
-                        color: "black"
+                        color: (main.GridView.view.hoveredItem === main && main.parentItemReference.dragging && main.isDir) ? Kirigami.Theme.highlightColor : "black"
 
                         opacity: main.isHidden ? 0.3 : 0.6
 
