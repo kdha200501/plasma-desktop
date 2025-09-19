@@ -1012,13 +1012,13 @@ FocusScope {
                 Behavior on contentX { id: smoothX; enabled: false; SmoothedAnimation { velocity: 700 } }
                 Behavior on contentY { id: smoothY; enabled: false; SmoothedAnimation { velocity: 700 } }
 
-                Keys.onReturnPressed: event => {
-                    if (event.modifiers === Qt.AltModifier) {
-                        dir.openPropertiesDialog();
-                    } else {
-                        runOrCdSelected();
-                    }
-                }
+                //Keys.onReturnPressed: event => {
+                //    if (event.modifiers === Qt.AltModifier) {
+                //        dir.openPropertiesDialog();
+                //    } else {
+                //        runOrCdSelected();
+                //    }
+                //}
 
                 Keys.onEnterPressed: event => Keys.returnPressed(event)
 
@@ -1045,12 +1045,21 @@ FocusScope {
                         installAsEventFilterFor(gridView);
                     }
 
+                    // convention over configuration, the convention is "on<Q_Signal name>"
+                    onOpen: {
+                        gridView.runOrCdSelected();
+                    }
+
                     onDeleteFile: {
                         dir.deleteSelected();
                     }
 
                     onRenameFile: {
                         main.rename();
+                    }
+
+                    onDuplicate: {
+                        dir.duplicateSelected();
                     }
 
                     onMoveToTrash: {
@@ -1060,8 +1069,16 @@ FocusScope {
                         }
                     }
 
+                    onViewProperties: {
+                        dir.openPropertiesDialog();
+                    }
+
                     onCreateFolder: {
                         model.createFolder();
+                    }
+
+                    onRunHome: {
+                        dir.runHome();
                     }
                 }
 
@@ -1076,12 +1093,12 @@ FocusScope {
                         if (currentIndex !== -1) {
                             anchorIndex = currentIndex;
                         }
-                    } else if (event.key === Qt.Key_Home) {
-                        currentIndex = 0;
-                        updateSelection(event.modifiers);
-                    } else if (event.key === Qt.Key_End) {
-                        currentIndex = count - 1;
-                        updateSelection(event.modifiers);
+                    // } else if (event.key === Qt.Key_Home) {
+                    //     currentIndex = 0;
+                    //     updateSelection(event.modifiers);
+                    // } else if (event.key === Qt.Key_End) {
+                    //     currentIndex = count - 1;
+                    //     updateSelection(event.modifiers);
                     } else if (event.matches(StandardKey.Copy)) {
                         dir.copy();
                     } else if (event.matches(StandardKey.Paste)) {
@@ -1161,6 +1178,12 @@ FocusScope {
                 }
 
                 Keys.onUpPressed: event => {
+                    if(event.modifiers & Qt.AltModifier) {
+                        currentIndex = 0;
+                        updateSelection(event.modifiers);
+                        return;
+                    }
+
                     if (positioner.enabled) {
                         const newIndex = positioner.nearestItem(currentIndex,
                             FolderTools.effectiveNavDirection(gridView.flow, gridView.effectiveLayoutDirection, Qt.UpArrow));
@@ -1183,6 +1206,12 @@ FocusScope {
                 }
 
                 Keys.onDownPressed: event => {
+                    if(event.modifiers & Qt.AltModifier) {
+                        currentIndex = count - 1;
+                        updateSelection(event.modifiers);
+                        return;
+                    }
+
                     if (positioner.enabled) {
                         const newIndex = positioner.nearestItem(currentIndex,
                             FolderTools.effectiveNavDirection(gridView.flow, gridView.effectiveLayoutDirection, Qt.DownArrow));
