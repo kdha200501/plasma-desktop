@@ -35,6 +35,7 @@ Item {
 
     property Item parentItemReference
     property bool isOnRootView: false
+    property bool takingSnapshot: false
 
     readonly property /*FolderViewDialog*/ Folder.SubDialog popupDialog: loader.item ? loader.item.popupDialog    : null
     readonly property Item iconArea:        loader.item ? loader.item.iconArea       : null
@@ -93,8 +94,10 @@ Item {
 
     function updateDragImage() {
         if (selected && !blank) {
+            takingSnapshot = true;
             loader.grabToImage(result => {
                 dir.addItemDragImage(positioner.map(index), main.x + loader.x, main.y + loader.y, loader.width, loader.height, result.image);
+                takingSnapshot = false;
             });
         }
     }
@@ -243,7 +246,7 @@ Item {
                 property Item iconShadow: null
 
                 sourceComponent: frameComponent
-                active: impl.hovered || main.selected
+                active: !main.takingSnapshot && (main.selected || (impl.hovered && main.parentItemReference?.dragging && main.isDir))
                 asynchronous: true
 
                 width: {
@@ -298,7 +301,7 @@ Item {
                     height: main.GridView.view.iconSize
 
                     opacity: {
-                        if (root.useListViewMode && impl.selectionButton.visible) {
+                        if ((root.useListViewMode && impl.selectionButton.visible) || main.takingSnapshot) {
                             return 0.3;
                         }
 
