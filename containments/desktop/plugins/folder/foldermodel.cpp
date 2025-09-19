@@ -872,6 +872,15 @@ void FolderModel::showTarget()
     });
 }
 
+void FolderModel::runHome()
+{
+    QUrl url = QUrl::fromLocalFile(QStandardPaths::writableLocation(QStandardPaths::HomeLocation));auto job = new KIO::OpenUrlJob(url);
+    job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled, nullptr));
+    job->setShowOpenOrExecuteDialog(false);
+    job->setRunExecutables(false);
+    job->start();
+}
+
 void FolderModel::rename(int row, const QString &name)
 {
     if (row < 0) {
@@ -2254,6 +2263,36 @@ void FolderModel::deleteSelected()
     using Iface = KIO::AskUserActionInterface;
     auto *job = new KIO::DeleteOrTrashJob(selectedUrls(), Iface::Delete, Iface::DefaultConfirmation, this);
     job->start();
+}
+
+void FolderModel::duplicateSelected()
+{
+    if (!m_selectionModel->hasSelection()) {
+        return;
+    }
+
+    const QMimeDatabase db; // default constructors
+
+    for (const auto &originalURL : selectedUrls()) {
+        // The following source code are copied from the Dolphin file manager
+        const QString originalDirectoryPath = originalURL.adjusted(QUrl::RemoveFilename).path();
+        const QString originalFileName = originalURL.fileName();
+        QString extension = db.suffixForFileName(originalFileName);
+        QUrl duplicateURL = originalURL;
+
+        if (extension.isEmpty()) {
+            duplicateURL.setPath(originalDirectoryPath + i18nc("<filename> copy", "%1 copy", originalFileName));
+        } else {
+            extension = QLatin1String(".") + extension;
+            const QString originalFilenameWithoutExtension = originalFileName.chopped(extension.size());
+            const QString originalExtension = originalFileName.right(extension.size());
+            duplicateURL.setPath(originalDirectoryPath + i18nc("<filename> copy", "%1 copy", originalFilenameWithoutExtension) + originalExtension);
+        }
+
+        KIO::CopyJob *job = KIO::copyAs(originalURL, duplicateURL);
+        job->setAutoRename(true);
+        KIO::FileUndoManager::self()->recordCopyJob(job);
+    }
 }
 
 void FolderModel::undo()

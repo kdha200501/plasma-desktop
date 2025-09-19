@@ -33,9 +33,13 @@ public:
 
 Q_SIGNALS:
     void deleteFile();
+    void open();
     void renameFile();
+    void duplicate();
     void moveToTrash();
+    void viewProperties();
     void createFolder();
+    void runHome();
 
 protected:
     bool eventFilter(QObject *obj, QEvent *e) override;
