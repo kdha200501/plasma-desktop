@@ -204,6 +204,7 @@ public:
 
     Q_INVOKABLE void run(int row);
     Q_INVOKABLE void runSelected();
+    Q_INVOKABLE void runHome();
     Q_INVOKABLE void showTarget();
 
     Q_INVOKABLE void rename(int row, const QString &name);
@@ -250,6 +251,7 @@ public:
     Q_INVOKABLE void copy();
     Q_INVOKABLE void cut();
     Q_INVOKABLE void deleteSelected();
+    Q_INVOKABLE void duplicateSelected();
     Q_INVOKABLE void undo();
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void createFolder();
