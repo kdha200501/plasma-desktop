@@ -21,6 +21,8 @@ import org.kde.private.desktopcontainment.folder as Folder
 Item {
     id: main
 
+    property Item parentItemReference
+
     property int index:          model.index
     property string name:        model.blank ? "" : model.display
     property string nameWrapped: model.blank ? "" : model.displayWrapped
@@ -379,7 +381,7 @@ Item {
                         // get unloaded when items are dragged to a different
                         // place on the desktop.
                         visible: this === frameLoader.item
-                        hovered: impl.iconAndLabelsShouldlookSelected
+                        hovered: impl.iconAndLabelsShouldlookSelected && parentItemReference.dragging && isDir
                         pressed: model.selected
                         active: Window.active
                     }
