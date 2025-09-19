@@ -275,7 +275,7 @@ QHash<int, QByteArray> FolderModel::staticRoleNames()
     QHash<int, QByteArray> roleNames;
     roleNames[Qt::DisplayRole] = QByteArrayLiteral("display");
     roleNames[Qt::DecorationRole] = QByteArrayLiteral("decoration");
-    roleNames[BlankRole] = QByteArrayLiteral("blank");
+    roleNames[BlankRole] = QByteArrayLiteral("blank");// the item.blank alias
     roleNames[SelectedRole] = QByteArrayLiteral("selected");
     roleNames[IsDirRole] = QByteArrayLiteral("isDir");
     roleNames[IsLinkRole] = QByteArrayLiteral("isLink");
@@ -1424,7 +1424,7 @@ QVariant FolderModel::data(const QModelIndex &index, int role) const
     }
 
     if (role == BlankRole) {
-        return m_dragIndexes.contains(index);
+        return m_dragIndexes.contains(index);//ref source of truth for item.blank
     } else if (role == SelectedRole) {
         return m_selectionModel->isSelected(index);
     } else if (role == IsDirRole) {

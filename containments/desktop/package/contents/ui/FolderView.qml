@@ -89,6 +89,7 @@ FocusScope {
         dir.linkHere(sourceUrl);
     }
 
+    // note, this is called by FolderViewDropArea.qml
     function handleDragMove(x, y) {
         var child = childAt(x, y);
 
@@ -479,7 +480,7 @@ FocusScope {
             var leftEdge = Math.min(gridView.contentX, gridView.originX);
 
             if (!item || item.blank) {
-                if (gridView.hoveredItem && !root.containsDrag && (!dialog || !dialog.containsDrag) && !gridView.hoveredItem.popupDialog) {
+                if (!dragging && gridView.hoveredItem && !root.containsDrag && (!dialog || !dialog.containsDrag) && !gridView.hoveredItem.popupDialog) {
                     gridView.hoveredItem = null;
                 }
             } else {
@@ -767,6 +768,7 @@ FocusScope {
                 delegate: FolderItemDelegate {
                     width: gridView.cellWidth
                     height: gridView.cellHeight
+                    parentItemReference: main
                 }
 
                 onContentXChanged: {
