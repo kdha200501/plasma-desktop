@@ -39,6 +39,7 @@ Item {
     property Item frame:           loader.item ? loader.item.frame          : null
     property PlasmaCore.ToolTipArea toolTip:         loader.item ? loader.item.toolTip        : null
     property real contentHeight:   loader.item && !root.useListViewMode ? loader.item.contentHeight : null
+    property bool takingSnapshot: false;
     Accessible.name: name
     Accessible.role: Accessible.Canvas
 
@@ -84,8 +85,10 @@ Item {
 
     function updateDragImage() {
         if (selected && !blank) {
+            takingSnapshot = true;
             loader.grabToImage(result => {
                 dir.addItemDragImage(positioner.map(index), main.x + loader.x, main.y + loader.y, loader.width, loader.height, result.image);
+                takingSnapshot = false;
             });
         }
     }
@@ -248,7 +251,7 @@ Item {
                 property string prefix: ""
 
                 sourceComponent: frameComponent
-                active: impl.iconAndLabelsShouldlookSelected || (main.model?.selected ?? false)
+                active: takingSnapshot ? false : impl.iconAndLabelsShouldlookSelected || (main.model?.selected ?? false)
                 asynchronous: true
 
                 width: {
@@ -303,7 +306,7 @@ Item {
                     height: main.GridView.view.iconSize
 
                     opacity: {
-                        if (root.useListViewMode && impl.selectionButton.visible) {
+                        if (root.useListViewMode && impl.selectionButton || takingSnapshot) {
                             return 0.3;
                         }
 
