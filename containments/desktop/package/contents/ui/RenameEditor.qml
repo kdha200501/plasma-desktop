@@ -43,6 +43,8 @@ PlasmaComponents.ScrollView {
 
         rightPadding: root.PlasmaComponents.ScrollBar.vertical.visible ? root.PlasmaComponents.ScrollBar.vertical.width : 0
 
+        color: black
+
         Kirigami.SpellCheck.enabled: false
 
         background: Rectangle {
@@ -205,4 +207,3 @@ PlasmaComponents.ScrollView {
         }
     }
 }
-

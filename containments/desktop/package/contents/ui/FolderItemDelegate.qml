@@ -380,8 +380,8 @@ Item {
                     opacity: model.isHidden ? 0.6 : 1
 
                     text: main.nameWrapped
-                    font.italic: (model?.isLink ?? false)
-                    wrapMode: (maximumLineCount === 1) ? Text.NoWrap : Text.Wrap
+                    font.italic: model?.isLink
+                    wrapMode: Text.NoWrap
                     horizontalAlignment: Text.AlignHCenter
                 }
 
