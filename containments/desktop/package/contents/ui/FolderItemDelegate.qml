@@ -367,7 +367,7 @@ Item {
 
                     text: main.nameWrapped
                     font.italic: model?.isLink
-                    wrapMode: (maximumLineCount === 1) ? Text.NoWrap : Text.Wrap
+                    wrapMode: Text.NoWrap
                     horizontalAlignment: Text.AlignHCenter
                 }
 
