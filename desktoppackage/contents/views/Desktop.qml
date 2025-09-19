@@ -6,6 +6,7 @@
 */
 
 import QtQuick
+import QtQuick.Window
 
 import org.kde.plasma.core as PlasmaCore
 import org.kde.kwindowsystem
@@ -20,6 +21,15 @@ Item {
     property Item containment
 
     property QtObject widgetExplorer
+
+    // Ensure the containment claims QML active focus as soon as this view is
+    // granted keyboard focus by the compositor (e.g. via the task switcher),
+    // instead of relying on the user clicking the desktop to arm shortcuts.
+    Window.onActiveChanged: {
+        if (Window.active && root.containment) {
+            root.containment.forceActiveFocus();
+        }
+    }
 
     Connections {
         target: ActivitySwitcher.Backend
