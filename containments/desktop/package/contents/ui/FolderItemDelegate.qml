@@ -37,6 +37,7 @@ Item {
     property Item hoverArea:       loader.item ? loader.item.hoverArea      : null
     property Item frame:           loader.item ? loader.item.frame          : null
     property Item toolTip:         loader.item ? loader.item.toolTip        : null
+    property bool takingSnapshot: false;
     Accessible.name: name
     Accessible.role: Accessible.Canvas
 
@@ -82,8 +83,10 @@ Item {
 
     function updateDragImage() {
         if (selected && !blank) {
+            takingSnapshot = true;
             loader.grabToImage(result => {
                 dir.addItemDragImage(positioner.map(index), main.x + loader.x, main.y + loader.y, loader.width, loader.height, result.image);
+                takingSnapshot = false;
             });
         }
     }
@@ -232,7 +235,7 @@ Item {
                 property string prefix: ""
 
                 sourceComponent: frameComponent
-                active: impl.iconAndLabelsShouldlookSelected || model.selected
+                active: takingSnapshot ? false : impl.iconAndLabelsShouldlookSelected || model.selected
                 asynchronous: true
 
                 width: {
@@ -287,7 +290,7 @@ Item {
                     height: main.GridView.view.iconSize
 
                     opacity: {
-                        if (root.useListViewMode && selectionButton.visible) {
+                        if (root.useListViewMode && selectionButton || takingSnapshot) {
                             return 0.3;
                         }
 
