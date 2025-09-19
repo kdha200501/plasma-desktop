@@ -373,7 +373,7 @@ Item {
 
                     text: main.displayWrapped
                     font.italic: main.isLink
-                    wrapMode: (maximumLineCount === 1) ? Text.NoWrap : Text.Wrap
+                    wrapMode: Text.NoWrap
                     horizontalAlignment: Text.AlignHCenter
                 }
 
