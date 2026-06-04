@@ -137,10 +137,6 @@ Item {
                         if (!main.GridView.view.isRootView || root.containsDrag) {
                             hoverActivateTimer.restart();
                         }
-
-                        if (Plasmoid.configuration.popups && !root.useListViewMode) {
-                            popupButton = popupButtonComponent.createObject(actions);
-                        }
                     }
                 } else if (!hovered) {
                     if (popupDialog != null) {
