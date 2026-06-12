@@ -152,7 +152,7 @@ Item {
         visible: root.floatingness === 0 && root.panelOpacity !== 1
         enabledBorders: panel.enabledBorders
         anchors.fill: floatingTranslucentItem
-        imagePath: root.containment?.plasmoid?.backgroundHints === PlasmaCore.Types.NoBackground ? "" : "widgets/panel-background"
+        imagePath: ""
     }
     KSvg.FrameSvgItem {
         id: floatingTranslucentItem
@@ -162,14 +162,14 @@ Item {
         width: root.verticalPanel ? panel.thickness : parent.width - root.leftFloatingPadding - root.rightFloatingPadding
         height: root.verticalPanel ? parent.height - root.topFloatingPadding - root.bottomFloatingPadding : panel.thickness
 
-        imagePath: root.containment?.plasmoid?.backgroundHints === PlasmaCore.Types.NoBackground ? "" : "widgets/panel-background"
+        imagePath: ""
     }
     KSvg.FrameSvgItem {
         id: floatingOpaqueItem
         visible: root.floatingness !== 0 && root.panelOpacity !== 0
         opacity: root.panelOpacity
         anchors.fill: floatingTranslucentItem
-        imagePath: root.containment?.plasmoid?.backgroundHints === PlasmaCore.Types.NoBackground ? "" : "solid/widgets/panel-background"
+        imagePath: ""
     }
     KSvg.FrameSvgItem {
         id: opaqueItem
@@ -177,7 +177,7 @@ Item {
         opacity: root.panelOpacity
         enabledBorders: panel.enabledBorders
         anchors.fill: floatingTranslucentItem
-        imagePath: root.containment?.plasmoid?.backgroundHints === PlasmaCore.Types.NoBackground ? "" : "solid/widgets/panel-background"
+        imagePath: ""
     }
 
     Keys.onEscapePressed: {
