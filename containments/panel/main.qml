@@ -8,6 +8,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Shapes
 import org.kde.plasma.plasmoid
 
 import org.kde.plasma.core as PlasmaCore
@@ -22,6 +23,144 @@ ContainmentItem {
     id: root
     width: 640
     height: 48
+
+    Rectangle {
+        id: panelBackground
+        anchors.fill: parent
+        color: "#DCDCDC"
+        z: -1
+
+        property int leftPadding: root.height / 2
+        property int rightPadding: root.height / 2
+    }
+
+    // Top-left corner cutter.
+    Shape {
+        id: topLeftCorner
+        anchors.top: parent.top
+        anchors.left: parent.left
+        width: root.height / 2
+        height: root.height / 2
+        z: 1000
+        preferredRendererType: Shape.CurveRenderer
+
+        ShapePath {
+            fillColor: "black"
+            strokeColor: "transparent"
+            startX: topLeftCorner.width; startY: 0
+            PathLine { x: 0; y: 0 }
+            PathLine { x: 0; y: topLeftCorner.height }
+            PathArc {
+                x: topLeftCorner.width; y: 0
+                radiusX: topLeftCorner.width; radiusY: topLeftCorner.height
+                direction: PathArc.Clockwise
+            }
+        }
+    }
+
+    // Top-right corner cutter: mirror of the above.
+    Shape {
+        id: topRightCorner
+        anchors.top: parent.top
+        anchors.right: parent.right
+        width: root.height / 2
+        height: root.height / 2
+        z: 1000
+        preferredRendererType: Shape.CurveRenderer
+
+        ShapePath {
+            fillColor: "black"
+            strokeColor: "transparent"
+            startX: 0; startY: 0
+            PathLine { x: topRightCorner.width; y: 0 }
+            PathLine { x: topRightCorner.width; y: topRightCorner.height }
+            PathArc {
+                x: 0; y: 0
+                radiusX: topRightCorner.width; radiusY: topRightCorner.height
+                direction: PathArc.Counterclockwise
+            }
+        }
+    }
+
+    // White highlight on left edge.
+    Rectangle {
+        anchors.top: panelBackground.top
+        anchors.bottom: panelBackground.bottom
+        anchors.left: panelBackground.left
+        width: 1
+        color: "white"
+        z: 999
+    }
+
+    // White highlight on top edge (between corner cutouts).
+    Rectangle {
+        anchors.top: panelBackground.top
+        anchors.left: topLeftCorner.right
+        anchors.right: topRightCorner.left
+        height: 1
+        color: "white"
+        z: 999
+    }
+
+    // Gray shadow on right edge.
+    Rectangle {
+        anchors.top: panelBackground.top
+        anchors.bottom: panelBackground.bottom
+        anchors.right: panelBackground.right
+        width: 1
+        color: "#808080"
+        z: 999
+    }
+
+    // White highlight tracing the top-left curve.
+    Shape {
+        anchors.top: parent.top
+        anchors.left: parent.left
+        width: root.height / 2
+        height: root.height / 2
+        z: 1000
+        preferredRendererType: Shape.CurveRenderer
+
+        ShapePath {
+            fillColor: "transparent"
+            strokeColor: "white"
+            strokeWidth: 1
+            startX: 0
+            startY: topLeftCorner.height
+            PathArc {
+                x: topLeftCorner.width
+                y: 0
+                radiusX: topLeftCorner.width
+                radiusY: topLeftCorner.height
+                direction: PathArc.Clockwise
+            }
+        }
+    }
+
+    // Gray shadow tracing the top-right curve.
+    Shape {
+        anchors.top: parent.top
+        anchors.right: parent.right
+        width: root.height / 2
+        height: root.height / 2
+        z: 1000
+        preferredRendererType: Shape.CurveRenderer
+
+        ShapePath {
+            fillColor: "transparent"
+            strokeColor: "#808080"
+            strokeWidth: 1
+            startX: topRightCorner.width
+            startY: topRightCorner.height
+            PathArc {
+                x: 0
+                y: 0
+                radiusX: topRightCorner.width
+                radiusY: topRightCorner.height
+                direction: PathArc.Counterclockwise
+            }
+        }
+    }
 
 //BEGIN properties
     Layout.preferredWidth: fixedWidth || currentLayout.implicitWidth + currentLayout.horizontalDisplacement
@@ -375,8 +514,8 @@ ContainmentItem {
 //BEGIN UI elements
 
         anchors {
-            leftMargin: root.isHorizontal ? Math.min(dropArea.spacingAtMinSize, panelSvg.fixedMargins.left + currentLayout.rowSpacing) : 0
-            rightMargin: root.isHorizontal ? Math.min(dropArea.spacingAtMinSize, panelSvg.fixedMargins.right + currentLayout.rowSpacing) : 0
+            leftMargin: (root.isHorizontal ? Math.min(dropArea.spacingAtMinSize, panelSvg.fixedMargins.left + currentLayout.rowSpacing) : 0) + panelBackground.leftPadding
+            rightMargin: (root.isHorizontal ? Math.min(dropArea.spacingAtMinSize, panelSvg.fixedMargins.right + currentLayout.rowSpacing) : 0) + panelBackground.rightPadding
             topMargin: root.isHorizontal ? 0 : Math.min(dropArea.spacingAtMinSize, panelSvg.fixedMargins.top + currentLayout.rowSpacing)
             bottomMargin: root.isHorizontal ? 0 : Math.min(dropArea.spacingAtMinSize, panelSvg.fixedMargins.bottom + currentLayout.rowSpacing)
         }
@@ -402,8 +541,9 @@ ContainmentItem {
                 delegate: appletContainerComponent
             }
 
-            rowSpacing: Kirigami.Units.smallSpacing
-            columnSpacing: Kirigami.Units.smallSpacing
+            // increase the spacing between applet icons
+            rowSpacing: Kirigami.Units.smallSpacing * 3
+            columnSpacing: Kirigami.Units.smallSpacing * 3
 
             x: 0
             readonly property int toolBoxSize: !root.toolBox || !Plasmoid.containment.corona.editMode ? 0 : (root.isHorizontal ? root.toolBox.width : root.toolBox.height)
@@ -436,6 +576,21 @@ ContainmentItem {
             layoutDirection: Application.layoutDirection
         }
     }
+
+    Rectangle {
+        anchors.bottom: root.bottom
+        anchors.left: root.left
+        anchors.right: root.right
+        height: 2
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: "#8c8c8c" }
+            GradientStop { position: 0.5; color: "#8c8c8c" }
+            GradientStop { position: 0.5; color: "black" }
+            GradientStop { position: 1.0; color: "black" }
+        }
+        z: 1000
+    }
+
     MouseArea {
         anchors.fill: parent
         visible: Containment.corona.editMode && !Plasmoid.userConfiguring
@@ -461,14 +616,6 @@ ContainmentItem {
         Accessible.name: toolTipArea.mainText
         Accessible.description: i18ndc("plasma_shell_org.kde.plasma.desktop", "@info:whatsthis Accessible description for entering Panel edit mode click area", "Open Panel configuration ui")
         Accessible.role: Accessible.Button
-    }
-    PC3.ToolButton {
-        id: addWidgetsButton
-        anchors.centerIn: parent
-        visible: appletsModel.count === 0
-        text: root.isHorizontal ? i18ndc("plasma_shell_org.kde.plasma.desktop", "@action:button opens widget explorer", "Add Widgets…") : undefined
-        icon.name: "list-add-symbolic"
-        onClicked: Plasmoid.internalAction("add widgets").trigger()
     }
 //END UI elements
 }
