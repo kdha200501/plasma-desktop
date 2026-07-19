@@ -8,6 +8,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Window
 
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
@@ -29,6 +30,7 @@ PlasmoidItem {
     readonly property bool hasContents: TrashPrivate.Trash.count > 0
 
     property bool containsAcceptableDrag: false
+    property bool selected: false
 
     Plasmoid.title: i18nc("@title the name of the Trash widget", "Trash")
     toolTipSubText: {
@@ -115,7 +117,16 @@ PlasmoidItem {
         activeFocusOnTab: true
         hoverEnabled: true
 
-        onClicked: Plasmoid.activated()
+        onActiveFocusChanged: {
+            if (!activeFocus) {
+                root.selected = false;
+            }
+        }
+        onClicked: {
+            root.selected = true;
+            forceActiveFocus(Qt.MouseFocusReason);
+        }
+        onDoubleClicked: Plasmoid.activated()
 
         DragDrop.DropArea {
             anchors.fill: parent
@@ -144,7 +155,15 @@ PlasmoidItem {
                 top: parent.top
                 bottom: root.inPanel ? parent.bottom: text.top
             }
-            active: mouseArea.containsMouse || root.containsAcceptableDrag
+
+        }
+
+        PlasmaExtras.Highlight {
+            z: -1
+            anchors.fill: parent
+            hovered: (root.selected && mouseArea.containsMouse) || root.containsAcceptableDrag
+            active: root.selected || root.containsAcceptableDrag
+            pressed: root.selected || root.containsAcceptableDrag
         }
 
         PlasmaExtras.ShadowedLabel {
@@ -154,7 +173,7 @@ PlasmoidItem {
                 bottom: parent.bottom
             }
             width: Math.round(text.implicitWidth + Kirigami.Units.smallSpacing) // make sure label is not blurry
-            text: Plasmoid.title + "\n" + root.toolTipSubText
+            text: Plasmoid.title
             horizontalAlignment: Text.AlignHCenter
             visible: !root.inPanel
         }
