@@ -247,6 +247,9 @@ public:
     Qt::DropActions supportedDragActions() const override;
     Qt::DropActions supportedDropActions() const override;
 
+    Q_INVOKABLE int suggestedDropActionForItem(int index, const QStringList &droppedUrls) const;
+    QUrl dropTargetUrl(int row) const;
+
     Q_INVOKABLE void paste();
     Q_INVOKABLE void copy();
     Q_INVOKABLE void cut();

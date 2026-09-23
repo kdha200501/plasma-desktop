@@ -52,6 +52,7 @@
 #include <KIO/CopyJob>
 #include <KIO/DeleteJob>
 #include <KIO/DeleteOrTrashJob>
+#include <KIO/DndActionSuggest>
 #include <KIO/DropJob>
 #include <KIO/EmptyTrashJob>
 #include <KIO/FileUndoManager>
@@ -499,6 +500,69 @@ void FolderModel::setUrl(const QString &url)
 QUrl FolderModel::resolvedUrl() const
 {
     return m_dirModel->dirLister()->url();
+}
+
+QUrl FolderModel::dropTargetUrl(int row) const
+{
+    QModelIndex idx;
+    KFileItem item;
+
+    if (row > -1 && row < rowCount()) {
+        idx = index(row, 0);
+        item = itemForIndex(idx);
+    }
+
+    // So we get to run mostLocalUrl() over the current URL, mirroring drop().
+    if (item.isNull()) {
+        item = rootItem();
+    }
+
+    if (item.isNull()) {
+        return m_dirModel->dirLister()->url();
+    } else if (m_parseDesktopFiles && item.isDesktopFile()) {
+        const KDesktopFile file(item.targetUrl().path());
+
+        if (file.hasLinkType()) {
+            return QUrl(file.readUrl());
+        }
+    }
+
+    QUrl url = item.mostLocalUrl();
+
+    if (url.fileName() == QLatin1Char('.')) {
+        // the target URL for desktop:/ is e.g. 'file://home/user/Desktop/.'
+        url = url.adjusted(QUrl::RemoveFilename | QUrl::StripTrailingSlash);
+    }
+
+    return url;
+}
+
+int FolderModel::suggestedDropActionForItem(int index, const QStringList &droppedUrls) const
+{
+    const QUrl dest = dropTargetUrl(index);
+    if (!dest.isValid()) {
+        return -1; // let Qt keep its proposed action
+    }
+
+    QList<QUrl> urls;
+    for (const QString &u : droppedUrls) {
+        urls.append(QUrl::fromUserInput(u));
+    }
+    if (urls.isEmpty()) {
+        return -1;
+    }
+
+    // Same same-device-aware logic the drop job uses, so the hover glyph and
+    // the actual drop decision are guaranteed to agree.
+    switch (KIO::suggestActionForDrop(urls, dest)) {
+    case KIO::DndActionGuess::Move:
+        return static_cast<int>(Qt::MoveAction);
+    case KIO::DndActionGuess::Copy:
+        return static_cast<int>(Qt::CopyAction);
+    case KIO::DndActionGuess::Ask:
+        return -1;
+    }
+    return -1;
 }
 
 QUrl FolderModel::resolve(const QString &url)

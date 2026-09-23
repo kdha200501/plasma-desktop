@@ -67,3 +67,24 @@ function isFileDrag(event) {
 
     return (event.mimeData.hasUrls || taskUrl || (arkService && arkPath));
 }
+
+// Same-device-aware preferred drop action for the hovered drop position, so the
+// compositor glyph (negotiated over wl_data_offer.set_actions) matches what the
+// drop will actually do. \a pos is in the FolderView's coordinate system.
+// Returns Qt::MoveAction, Qt::CopyAction, or -1 to keep Qt's proposed action.
+function suggestedDropAction(view, model, pos, urls) {
+    if (!view || !model || !urls || urls.length === 0) {
+        return -1;
+    }
+
+    const gridView = view.view;
+    const contentPos = view.mapToItem(gridView.contentItem, pos.x, pos.y);
+
+    let index = -1;
+    const item = gridView.safeItemAt(contentPos.x, contentPos.y);
+    if (item && !item.blank) {
+        index = item.index;
+    }
+
+    return model.suggestedDropActionForItem(index, urls);
+}

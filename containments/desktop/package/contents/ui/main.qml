@@ -203,21 +203,58 @@ ContainmentItem {
 
         preventStealing: true
 
+        // Negotiate the same-device-aware preferred action for this drag event so the
+        // compositor glyph (negotiated over wl_data_offer.set_actions) matches the
+        // action the drop will perform (Move on the same device, Copy across devices),
+        // like macOS. Modifiers are handled by the compositor (kwin) on top of this, so
+        // report the unmodified default here. Every QDragMoveEvent Qt delivers carries
+        // its own freshly-computed proposedAction that DeclarativeDropArea accepts
+        // as-is, so this must be called from both onDragEnter and onDragMove, or the
+        // glyph reverts to Qt's default (Copy) as soon as the pointer moves.
+        function negotiatePreferredDropAction(event) {
+            if (root.isFolder && folderViewLayer.ready
+                && FolderTools.isFileDrag(event)
+                && (event.modifiers & (Qt.ControlModifier | Qt.AltModifier)) === Qt.NoModifier) {
+                const suggestedAction = FolderTools.suggestedDropAction(folderViewLayer.view, folderViewLayer.model,
+                                                                        mapToItem(folderViewLayer.view, event.x, event.y),
+                                                                        event.mimeData.urls);
+                if (suggestedAction !== -1) {
+                    event.accept(suggestedAction);
+                } else {
+                    event.accept(event.proposedAction);
+                }
+            }
+        }
+
         onDragEnter: event => {
+            // DragDropEvent (org.kde.draganddrop) only exposes accept()/ignore(); it has
+            // no isAccepted() query, so track the ignored state ourselves instead of
+            // calling the (non-existent) event.isAccepted().
+            let ignored = false;
+
             if (root.isContainment && Plasmoid.immutable && !(root.isFolder && FolderTools.isFileDrag(event))) {
                 event.ignore();
+                ignored = true;
             }
 
             // Don't allow any drops while listing.
             if (root.isFolder && folderViewLayer.view.status === Folder.FolderModel.Listing) {
                 event.ignore();
+                ignored = true;
             }
 
             // Firefox tabs are regular drags. Since all of our drop handling is asynchronous
             // we would accept this drop and have Firefox not spawn a new window. (Bug 337711)
             if (event.mimeData.formats.indexOf("application/x-moz-tabbrowser-tab") !== -1) {
                 event.ignore();
+                ignored = true;
             }
+
+            if (ignored) {
+                return;
+            }
+
+            negotiatePreferredDropAction(event);
         }
 
         onDragMove: event => {
@@ -236,6 +273,8 @@ ContainmentItem {
                     appletsLayout.minimumItemHeight)
                 );
             }
+
+            negotiatePreferredDropAction(event);
         }
 
         onDragLeave: event => {
