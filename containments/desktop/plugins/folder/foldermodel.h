@@ -273,6 +273,9 @@ public:
     Qt::DropActions supportedDropActions() const override;
     bool desktopFileExists(const QString &fileName) const;
 
+    Q_INVOKABLE int suggestedDropActionForItem(int index, const QStringList &droppedUrls) const;
+    QUrl dropTargetUrl(int row) const;
+
     Q_INVOKABLE void paste();
     Q_INVOKABLE void copy();
     Q_INVOKABLE void cut();
