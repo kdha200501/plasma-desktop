@@ -9,6 +9,8 @@ import QtQuick
 import org.kde.draganddrop as DragDrop
 import org.kde.kirigami as Kirigami
 
+import "code/FolderTools.js" as FolderTools
+
 DragDrop.DropArea {
     id: dropArea
 
