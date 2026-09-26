@@ -16,6 +16,8 @@ target_sources(folderplugin PRIVATE
     placesmodel.cpp
     positioner.cpp
     previewpluginsmodel.cpp
+    quicklookclient.cpp
+    quicklookclient.h
     subdialog.cpp
     viewpropertiesmenu.cpp
     wheelinterceptor.cpp
@@ -28,6 +30,7 @@ target_sources(folderplugin PRIVATE
 
 target_link_libraries(folderplugin PUBLIC
                       Qt::Core
+                      Qt::DBus
                       Qt::Qml
                       Qt::Quick
                       Plasma::Activities
