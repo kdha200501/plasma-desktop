@@ -24,6 +24,11 @@ FocusScope {
     property Folder.FolderModel model: dir
     property Item rubberBand: null
 
+    // The Quick Look preview was closed and the view still needs the keyboard
+    // focus restored (see onQuickLookClosed): armed there, consumed by the
+    // window activation that follows the preview closing.
+    property bool pendingQuickLookFocusRestore: false
+
     property alias view: gridView
     property alias isRootView: gridView.isRootView
     property alias currentIndex: gridView.currentIndex
@@ -198,6 +203,11 @@ FocusScope {
 
     function doBack() {
         goingBack = true;
+        // The selection is cleared out-of-band below, before the navigation's
+        // own setUrl() re-arms the Quick Look guard; arm it here so that the
+        // resulting empty selection isn't read as a blank click closing the
+        // preview (see FolderModel::setUrl()).
+        dir.armQuickLookNavigationGuard();
         gridView.currentIndex = -1;
         lastPosition = history.pop();
         url = lastPosition.url;
@@ -1029,7 +1039,11 @@ FocusScope {
                 }
 
                 Keys.onEscapePressed: event => {
-                    if (!main.editor || !main.editor.targetItem) {
+                    if (dir.quickLookOpen()) {
+                        // Escape closes the Quick Look preview (the selection is
+                        // kept, so Space re-opens it on the same item).
+                        dir.closeQuickLook();
+                    } else if (!main.editor || !main.editor.targetItem) {
                         main.previouslySelectedItemIndex = -1;
                         dir.clearSelection();
                         event.accepted = false;
@@ -1118,6 +1132,13 @@ FocusScope {
                         dir.refresh();
                     } else if (event.matches(StandardKey.SelectAll)) {
                         positioner.setRangeSelected(0, count - 1);
+                    } else if (event.key === Qt.Key_Space && event.modifiers === Qt.NoModifier && gridView.currentIndex !== -1) {
+                        // Plain Space toggles a Quick Look preview of the
+                        // current/selected item(s) (matching Dolphin / macOS:
+                        // opens it, and a second Space closes it again). Must
+                        // come before the type-ahead branch so Space is not
+                        // treated as a search character.
+                        dir.quickLook(positioner.map(gridView.currentIndex));
                     } else if ( (root.isPopup || !main.krunnerAvailable || Plasmoid.configuration.useTypeAhead) && event.text.length === 1 && event.modifiers === Qt.NoModifier) {
                         typeAheadTimer.restart();
                         const charPressed = event.text.toLowerCase();
@@ -1338,6 +1359,23 @@ FocusScope {
                     gridView.currentIndex = Math.min(main.lastPosition.index, gridView.count - 1);
                     setSelected(positioner.map(gridView.currentIndex));
                     gridView.contentY = main.lastPosition.yPosition * gridView.contentHeight;
+                }
+            }
+
+            onQuickLookClosed: {
+                // The Quick Look modal took the window focus on show (so it
+                // can be driven by Escape/Space/arrows). Give it back to the
+                // item the preview was opened from: gridView is where the key
+                // input lives and its currentIndex is the selected item the
+                // preview followed, so Space re-opens the preview of that same
+                // item (as in Dolphin, which restores the focus to its active
+                // view - the QWidget machinery remembers the focus for the
+                // activation, while a QML forceActiveFocus() on an inactive
+                // window is ignored, hence the two-stage restore below).
+                pendingQuickLookFocusRestore = true;
+                if (main.window && main.window.active) {
+                    pendingQuickLookFocusRestore = false;
+                    gridView.forceActiveFocus();
                 }
             }
 

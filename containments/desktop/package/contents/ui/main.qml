@@ -125,7 +125,26 @@ ContainmentItem {
 
     onFocusChanged: {
         if (focus && isFolder) {
-            (folderViewLayer.item as Item)?.forceActiveFocus();
+            // The window became (re)active; a pending Quick Look focus restore
+            // (armed by the folder view's onQuickLookClosed, because a
+            // forceActiveFocus() on an inactive window is a no-op) applies now.
+            var fv = folderViewLayer.item;
+            if (fv && fv.pendingQuickLookFocusRestore) {
+                fv.pendingQuickLookFocusRestore = false;
+                // Restore to the grid, not the scope: forceActiveFocus() on
+                // the FocusScope leaves the delegates unfocused, so arrow keys
+                // reach no item until the first click.
+                fv.view.forceActiveFocus();
+            } else {
+                fv?.forceActiveFocus();
+            }
+
+            // A file manager window (Dolphin) that took the shared Quick Look
+            // preview over may have been closed, returning the focus to the
+            // desktop; hand the preview back to the desktop's selection (or
+            // dismiss it if that is empty). No-op when the desktop does not
+            // believe its preview is open, or already owns it.
+            folderViewLayer.model?.retakeQuickLookOnFocus();
         }
     }
 

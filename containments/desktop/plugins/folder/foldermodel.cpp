@@ -12,6 +12,7 @@
 #include "desktopschemehelper.h"
 #include "itemviewadapter.h"
 #include "positioner.h"
+#include "quicklookclient.h"
 #include "removeaction.h"
 #include "screenmapper.h"
 
@@ -252,11 +253,25 @@ FolderModel::FolderModel(QObject *parent)
 
     QObject::connect(dirLister, &KCoreDirLister::completed, this, [this] {
         setStatus(Status::Ready);
+        // A directory navigation clears the selection transiently, which is
+        // not a blank click: drop the Quick Look "close on empty selection"
+        // guard now that the new directory has loaded (see setUrl()).
+        m_quickLookNavigationInProgress = false;
+        if (m_quickLookCloseTimer) {
+            m_quickLookCloseTimer->stop();
+        }
         Q_EMIT listingCompleted();
     });
 
     QObject::connect(dirLister, &KCoreDirLister::canceled, this, [this] {
         setStatus(Status::Canceled);
+        // The navigation was aborted before it settled: drop the Quick Look
+        // "close on empty selection" guard (see setUrl()) so a later blank
+        // click can dismiss the preview again.
+        m_quickLookNavigationInProgress = false;
+        if (m_quickLookCloseTimer) {
+            m_quickLookCloseTimer->stop();
+        }
         Q_EMIT listingCanceled();
     });
 
@@ -287,6 +302,29 @@ FolderModel::FolderModel(QObject *parent)
     m_selectionModel = new QItemSelectionModel(this, this);
     connect(m_selectionModel, &QItemSelectionModel::selectionChanged, this, &FolderModel::changeSelection);
     connect(m_selectionModel, &QItemSelectionModel::selectionChanged, this, &FolderModel::selectionChanged);
+
+    // Live-update: track when the Quick Look window hides so the selection
+    // model can re-send the current selection on the next movement. The
+    // signal is broadcast to every model's watcher; only this model's flag is
+    // cleared, and re-sends are gated on this model having triggered the
+    // preview, so a model on another screen cannot steal the shared preview
+    // (see changeSelection()).
+    m_quickLookClosedWatcher = QuickLookClient::connectClosed(this, [this] {
+        const bool wasOwner = QuickLookClient::isPreviewOwner(this);
+        m_quickLookOpen = false;
+        m_quickLookCloseTimer->stop();
+        if (wasOwner) {
+            Q_EMIT quickLookClosed();
+        }
+    });
+
+    m_quickLookCloseTimer = new QTimer(this);
+    m_quickLookCloseTimer->setInterval(150);
+    m_quickLookCloseTimer->setSingleShot(true);
+    connect(m_quickLookCloseTimer, &QTimer::timeout, this, [this]() {
+        qWarning() << "QLDBG [desktop] closeTimer timeout -> closeQuickLook, url =" << m_url;
+        closeQuickLook();
+    });
 
     setSourceModel(m_dirModel);
 
@@ -459,6 +497,16 @@ void FolderModel::setUrl(const QString &url)
 
     const auto oldUrl = resolvedUrl();
 
+    // Entering a directory (the keyboard "enter" shortcut opens a selected
+    // directory) resets the model, which clears the selection. The Quick Look
+    // "close on empty selection" heuristic would read that as a blank click and
+    // close the preview. A navigation has no re-select to cancel the close, so
+    // suppress it from here. This must happen before beginResetModel(): the
+    // reset synchronously emits the selection-clear changeSelection() that the
+    // guard exists to suppress - arming it after the reset leaves that event
+    // (and the close timer it starts) unguarded. The guard stays set across the
+    // load (cleared on the dirLister's completed/sorted signals).
+    m_quickLookNavigationInProgress = true;
     beginResetModel();
     m_url = url;
     m_isDirCache.clear();
@@ -1079,6 +1127,113 @@ bool FolderModel::isSelected(int row)
     return m_selectionModel->isSelected(index(row, 0));
 }
 
+void FolderModel::quickLook(int row)
+{
+    if (row < 0) {
+        return;
+    }
+
+    // A second Space while the preview this model owns is open closes it, like
+    // Dolphin / macOS Quick Look do (the view keeps the keyboard focus while the
+    // preview is open, so it can close its own preview from the view keys); it
+    // is also where the preview of a moved selection would re-open if the user
+    // had moved it to other item(s) while the preview was open.
+    if (m_quickLookOpen && QuickLookClient::isPreviewOwner(this)) {
+        qWarning() << "QLDBG [desktop] quickLook -> toggle (space while open)";
+        closeQuickLook();
+        return;
+    }
+
+    // Preview all selected item(s) when there is a selection, otherwise
+    // preview the item at \a row - matching Dolphin's behavior.
+    const QList<QUrl> urls = selectedUrls();
+    const KFileItem item = itemForIndex(index(row, 0));
+
+    if (item.isNull() || item.url().isEmpty()) {
+        return;
+    }
+    if (urls.isEmpty()) {
+        QuickLookClient::requestPreview(QList<QUrl>() << item.url());
+    } else {
+        QuickLookClient::requestPreview(urls);
+    }
+    m_quickLookOpen = true;
+    // Become the owner of the shared preview; only the owner re-sends live
+    // updates, so another screen's selection cannot steal this preview back.
+    QuickLookClient::setPreviewOwner(this);
+}
+
+bool FolderModel::quickLookOpen() const
+{
+    return m_quickLookOpen;
+}
+
+void FolderModel::closeQuickLook()
+{
+    qWarning() << "QLDBG [desktop] closeQuickLook() entered, owner =" << QuickLookClient::isPreviewOwner(this);
+    if (m_quickLookOpen && QuickLookClient::isPreviewOwner(this)) {
+        m_quickLookOpen = false;
+        m_quickLookCloseTimer->stop();
+        QuickLookClient::closeQuickLook();
+    }
+}
+
+void FolderModel::retakeQuickLookOnFocus()
+{
+    // The desktop (re)gained the window focus - most notably when the user
+    // closes the Dolphin window that had taken the shared Quick Look preview
+    // over (see armQuickLookTakeover() in DolphinMainWindow). The preview
+    // follows the focus, macOS Quick Look style: while the desktop has it, the
+    // desktop's selection is what is previewed.
+    //
+    // This model never learns about a takeover by another process - only its
+    // own flag (m_quickLookOpen, cleared by the closed signal) tracks its view
+    // of the preview - so it still believes its preview is open here even
+    // though the visible preview belongs to (and is live-updated by) the other
+    // process. QuickLookClient::previewOwner() asks the service who actually
+    // owns it; a non-empty answer that is not this process's own unique name is
+    // the "taken over by someone else" state. An empty answer means no open
+    // preview at all (the owner closed it with its window, or the modal was
+    // dismissed), so there is nothing to update.
+    //
+    // Re-acquiring goes through an explicit trigger (requestPreview()): the
+    // service switches ownership to the caller for explicit calls, so this
+    // model's live-updates are applied again from here on - the same rule by
+    // which the Dolphin window took the preview over in the first place.
+    // No-op while this model does not believe its preview is open; also no-op
+    // while the preview is already owned by this process (focus merely moved
+    // between screens - the intra-process owner is already this model).
+    // Only the focused screen's view can reach this: the QML handler is wired
+    // into the containment's onFocusChanged, which fires for the screen the
+    // window focus landed on.
+    if (!m_quickLookOpen) {
+        return;
+    }
+    const QString owner = QuickLookClient::previewOwner();
+    if (owner.isEmpty() || owner == QuickLookClient::ownUniqueName()) {
+        return;
+    }
+    const QList<QUrl> urls = selectedUrls();
+    if (urls.isEmpty()) {
+        // The desktop's selection is empty (e.g. a blank click landed there
+        // before the focus returned): there is nothing to preview, so dismiss
+        // the modal the same way a blank click would. closeQuickLook() is
+        // owner-gated (the current owner is the other process), so use the
+        // empty-list dismiss, which the service answers unconditionally.
+        qWarning() << "QLDBG [desktop] retakeQuickLookOnFocus -> empty selection, dismissPreview, url =" << m_url;
+        QuickLookClient::dismissPreview();
+        return;
+    }
+    qWarning() << "QLDBG [desktop] retakeQuickLookOnFocus -> requestPreview, url =" << m_url;
+    m_quickLookCloseTimer->stop();
+    QuickLookClient::requestPreview(urls);
+}
+
+void FolderModel::armQuickLookNavigationGuard()
+{
+    m_quickLookNavigationInProgress = true;
+}
+
 void FolderModel::setSelected(int row)
 {
     if (row < 0) {
@@ -1554,6 +1709,38 @@ void FolderModel::changeSelection(const QItemSelection &selected, const QItemSel
     }
 
     updateActions();
+
+    // Live-update: keep an open Quick Look preview in sync with the (moved)
+    // selection, mirroring Dolphin's behavior. Only this model re-sends when it
+    // is the one that opened the preview: Quick Look is a single shared window,
+    // so gating on the triggering model stops another screen's selection from
+    // stealing the preview the user is looking at. The plasmashell runs all
+    // screens' Folder Views in one process, so the client-side
+    // QuickLookClient::setPreviewOwner()/isPreviewOwner() gate is what makes
+    // this work here; the same rule is enforced across processes by the
+    // service itself (requestPreview()/previewUrls()).
+    if (m_quickLookOpen && QuickLookClient::isPreviewOwner(this)) {
+        const QList<QUrl> urls = selectedUrls();
+        if (urls.isEmpty()) {
+            // The selection is gone (a blank click is the common case): close
+            // the modal - the service cannot detect this itself, a blank click
+            // only moves the focus to a window it does not see (the shell),
+            // without any focus change of its own. Do it through the grace
+            // timer though: an item click also clears the selection first and
+            // re-selects in the next selectionChanged, which cancels the timer
+            // (a direct close would kill every item click). An in-progress
+            // directory change also empties the selection transiently (it resets
+            // the model and loads a new directory) - that is not a blank click,
+            // so ignore it here.
+            if (!m_quickLookNavigationInProgress) {
+                qWarning() << "QLDBG [desktop] empty selection, guard OFF -> starting close timer, url =" << m_url;
+                m_quickLookCloseTimer->start();
+            }
+        } else {
+            m_quickLookCloseTimer->stop();
+            QuickLookClient::previewUrls(urls);
+        }
+    }
 }
 
 bool FolderModel::isBlank(int row) const
