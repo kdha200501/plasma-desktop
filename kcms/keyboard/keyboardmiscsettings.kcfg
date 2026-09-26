@@ -15,8 +15,8 @@ SPDX-License-Identifier: GPL-2.0-or-later
       <default code="true">qgetenv("QT_IM_MODULE") == "plasmaim" ? QStringLiteral("accent") : QStringLiteral("repeat")</default>
     </entry>
     <entry name="numLock" key="NumLock" type="Int">
-    <!-- STATE_UNCHANGED -->
-      <default>2</default>
+    <!-- NumLockOn: jacks-customizations turn on number lock at login -->
+      <default>0</default>
     </entry>
     <entry name="repeatDelay" key="RepeatDelay" type="Int">
       <tooltip>If supported, this option allows you to set the delay after which a pressed key will start generating keycodes. The 'Repeat rate' option controls the frequency of these keycodes.If supported, this option allows you to set the delay after which a pressed key will start generating keycodes. The 'Repeat rate' option controls the frequency of these keycodes.</tooltip>
