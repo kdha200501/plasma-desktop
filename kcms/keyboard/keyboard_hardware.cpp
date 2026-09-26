@@ -101,10 +101,7 @@ void init_keyboard_hardware()
         set_repeat_mode(false);
     }
 
-    TriState numlockState = TriStateHelper::getTriState(config.readEntry("NumLock", TriStateHelper::getInt(STATE_UNCHANGED)));
-    if (numlockState != STATE_UNCHANGED) {
-        KModifierKeyInfo keyInfo;
-        keyInfo.setKeyLocked(Qt::Key_NumLock, numlockState == STATE_ON);
-    }
+    KModifierKeyInfo keyInfo;
+    keyInfo.setKeyLocked(Qt::Key_NumLock, true);
     XFlush(QX11Info::display());
 }
