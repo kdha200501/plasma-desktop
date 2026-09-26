@@ -41,6 +41,7 @@ class KDirWatch;
 class KFileItem;
 class KFileItemActions;
 class KJob;
+class QuickLookClosedWatcher;
 
 namespace KIO
 {
@@ -230,6 +231,32 @@ public:
 
     Q_INVOKABLE bool isBlank(int row) const;
 
+    Q_INVOKABLE void quickLook(int row);
+
+    Q_INVOKABLE bool quickLookOpen() const;
+
+    Q_INVOKABLE void closeQuickLook();
+
+    // Called when the desktop containment's window becomes (re)active - i.e.
+    // the focus is back on the desktop. If this model opened a Quick Look
+    // preview that was meanwhile taken over by a file manager window (see
+    // DolphinMainWindow::armQuickLookTakeover()), hand it back: live-update the
+    // shared preview to this model's selection, or dismiss it if the selection
+    // is empty. No-op while this model does not believe its preview is open.
+    // See retakeQuickLookOnFocus() in foldermodel.cpp.
+    Q_INVOKABLE void retakeQuickLookOnFocus();
+
+    // Called when the desktop containment's window loses the focus (the user
+    // moved to another window). If this model owns the shared Quick Look
+    // preview, close it - unless a window that takes the preview over (a file
+    // manager, another desktop screen) does so in the meantime. Mirrors the
+    // Dolphin window's focus-loss behavior.
+    Q_INVOKABLE void quickLookFocusLost();
+
+    // Arms the "close on empty selection" guard before a directory change that
+    // clears the selection out-of-band (see setUrl() for why).
+    Q_INVOKABLE void armQuickLookNavigationGuard();
+
     Q_INVOKABLE QAction *action(const QString &name) const;
     QObject *newMenu() const;
     Q_INVOKABLE void updateActions();
@@ -264,6 +291,14 @@ public:
 
     void setScreen(int screen, SetScreenActions screenActions = SetScreenActions::None);
 
+    /**
+     * QScreen::name() of this view's monitor (the one whose content is
+     * displayed), the empty string if the screen is unknown. A stable
+     * per-monitor identifier valid in every process (unlike a screen index),
+     * used to anchor the Quick Look window to the monitor the item is on.
+     */
+    QString anchorScreenName() const;
+
 #ifdef BUILD_TESTING
     void setScreenResolution(const QSizeF &size);
 #endif
@@ -290,6 +325,10 @@ Q_SIGNALS:
     void viewAdapterChanged();
     void previewsChanged() const;
     void previewPluginsChanged() const;
+    // The Quick Look preview this model owns was closed; the view restores
+    // its focus from this (the preview takes the focus while it is open - the
+    // shell needs it for keyboard input on the items).
+    void quickLookClosed() const;
     void filterModeChanged() const;
     void filterPatternChanged() const;
     void filterMimeTypesChanged() const;
@@ -385,6 +424,32 @@ private:
     bool m_filterPatternMatchAll;
     QSet<QString> m_mimeSet;
     QList<QRegularExpression> m_regExps;
+    // True while the Quick Look window is open, used to live-update the preview
+    // as the selection moves (mirrors Dolphin's behavior).
+    bool m_quickLookOpen = false;
+    QPointer<QuickLookClosedWatcher> m_quickLookClosedWatcher;
+    // A blank click closes the Quick Look preview through this timer rather
+    // than directly: an item click clears the selection and re-selects in two
+    // selectionChanged events, so a close on the transient empty state would
+    // kill every item click. The follow-up selection cancels the timer (see
+    // changeSelection()).
+    QTimer *m_quickLookCloseTimer = nullptr;
+    // True while m_quickLookCloseTimer was armed for a window focus loss rather
+    // than a blank click: a focus loss closes the preview only when this model
+    // is still the owner (a hand-off to a file manager / other screen re-owns
+    // it in the meantime), a blank click also dismisses a foreign preview. See
+    // the timeout handler.
+    bool m_quickLookCloseOnFocusLost = false;
+
+    // Arms the Quick Look close grace timer; \a onCloseFocusLost marks it as a
+    // focus-loss close (acts only while this model is still the owner) as
+    // opposed to a blank-click close (also dismisses a foreign preview).
+    void armQuickLookCloseTimer(bool onCloseFocusLost);
+    // True while the model is navigating to a new directory so that the
+    // directory change's transient empty selection doesn't close an open
+    // Quick Look preview (see changeSelection() / setUrl() / the listing
+    // completion connect).
+    bool m_quickLookNavigationInProgress = false;
     int m_screen = -1;
     bool m_screenUsed;
     ScreenMapper *m_screenMapper = nullptr;
