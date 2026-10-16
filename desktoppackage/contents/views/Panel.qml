@@ -192,12 +192,14 @@ Item {
     onStateTriggersChanged: {
         let opaqueApplets = false
         let floatingApplets = false
-        if ((!floating || touchingWindowOrKeyboard) && (isOpaque || (touchingWindowOrKeyboard && isAdaptive))) {
+        // the adaptive opacity behavior is hardcoded to be disabled: the panel is
+        // never turned completely opaque by a maximized window touching it.
+        if ((!floating || touchingWindowOrKeyboard) && isOpaque) {
             panelOpacity = 1
             opaqueApplets = true
             floatingnessTarget = 0
             floatingApplets = (panel.floatingApplets && !floating)
-        } else if ((!floating || touchingWindowOrKeyboard) && (isTransparent || (!touchingWindowOrKeyboard && isAdaptive))) {
+        } else if ((!floating || touchingWindowOrKeyboard) && (isTransparent || isAdaptive)) {
             panelOpacity = 0
             floatingnessTarget = 0
             floatingApplets = (panel.floatingApplets && !floating)
